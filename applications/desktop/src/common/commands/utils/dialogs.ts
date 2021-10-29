@@ -11,7 +11,7 @@ interface SaveDialogOptions {
   defaultPath?: string;
 }
 
-export function showSaveAsDialog(): Promise<string> {
+export function showSaveAsDialog(): Promise<string | undefined> {
   return new Promise((resolve, _reject) => {
     const options: SaveDialogOptions = {
       title: "Save Notebook",

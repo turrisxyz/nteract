@@ -4,7 +4,7 @@ import { createSymlinkObservable, writeFileObservable } from "fs-observable";
 import { join } from "path";
 import { merge, Observable } from "rxjs";
 import { catchError, mergeMap } from "rxjs/operators";
-import { spawn } from "spawn-rx";
+import { spawn } from "../../../main/spawn-rx";
 import { DesktopCommand, ReqContent } from "../types";
 
 export const InstallShellCommand: DesktopCommand<ReqContent> = {
@@ -46,49 +46,49 @@ export const InstallShellCommand: DesktopCommand<ReqContent> = {
       return;
     }
 
-    (
-      process.platform === "win32"
+    var setPath$ = process.platform === "win32"
         ? merge(
-        spawn("SETX",
-          ["PATH",
-            [
-              ...(process.env.PATH || "")
-                .split(";")
-                .filter(item => !/\bnteract\b/.test(item))
-                // Remove duplicates (SETX throws a error if path is to long)
-                .filter((item, index, array) => array.indexOf(item) === index),
-              binDir,
-            ].join(";")]),
-        spawn("SETX", ["NTERACT_EXE", exe]),
-        spawn("SETX", ["NTERACT_DIR", rootDir])
-        ) as Observable<void>
-        : writeFileObservable(
-        join(binDir, "nteract-env"),
-        `NTERACT_EXE="${exe}"\nNTERACT_DIR="${rootDir}"`
-        ).pipe(
-        mergeMap(() => {
-          const target = join(binDir, "nteract.sh");
-          return createSymlinkObservable(target, "/usr/local/bin/nteract").pipe(
-            catchError(() => {
-              if (!process.env.HOME) {
-                throw new Error("HOME not defined");
-              }
-              const dest = join(process.env.HOME, ".local/bin/nteract");
-              return createSymlinkObservable(target, dest);
-            })
-          );
-        })
-        )
-    ).subscribe(
-      () => undefined,
-      err => dialog.showErrorBox("Could not write shell script.", err.message),
-      () =>
-        dialog.showMessageBox({
+          spawn("SETX",
+            ["PATH",
+              [
+                ...(process.env.PATH || "")
+                  .split(";")
+                  .filter(item => !/\bnteract\b/.test(item))
+                  // Remove duplicates (SETX throws a error if path is to long)
+                  .filter((item, index, array) => array.indexOf(item) === index),
+                binDir,
+              ].join(";")]),
+          spawn("SETX", ["NTERACT_EXE", exe]),
+          spawn("SETX", ["NTERACT_DIR", rootDir])) as unknown as Observable<void>
+        : writeFileObservable(join(binDir, "nteract-env"), `NTERACT_EXE="${exe}"\nNTERACT_DIR="${rootDir}"`).pipe(
+            mergeMap(() => {
+              const target = join(binDir, "nteract.sh");
+              return createSymlinkObservable(target, "/usr/local/bin/nteract").pipe(
+                catchError(() => {
+                  if (!process.env.HOME) {
+                    throw new Error("HOME not defined");
+                  }
+                  const dest = join(process.env.HOME, ".local/bin/nteract");
+                  return createSymlinkObservable(target, dest);
+                })
+              );
+            }));
+
+    setPath$.subscribe({
+      next() {},
+      error(err: any) {
+        if (err instanceof Error) {
+          dialog.showErrorBox("Could not write shell script.", err.message);
+        }
+      },
+      complete() {
+        return dialog.showMessageBox({
           title: "Command installed.",
           message: 'The shell command "nteract" is installed.',
           detail: 'Get help with "nteract --help".',
           buttons: ["OK"]
-        })
-    );
+        });
+      }
+    });
   },
 };

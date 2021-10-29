@@ -1,6 +1,6 @@
 import { KernelspecInfo } from "@nteract/core";
 import * as path from "path";
-import { empty, Observable } from "rxjs";
+import { EMPTY, empty, Observable } from "rxjs";
 import {
   catchError,
   filter,
@@ -9,7 +9,7 @@ import {
   mergeAll,
   toArray
 } from "rxjs/operators";
-import { spawn } from "spawn-rx";
+import { spawn } from "./spawn-rx";
 
 /**
  * ipyKernelTryObservable checks for the existence of ipykernel in the environment.
@@ -23,11 +23,9 @@ export function ipyKernelTryObservable(env: { prefix: string; name: string }) {
       split: true // When split is true the observable's return value is { source: 'stdout', text: '...' }
     }
   ).pipe(
-    filter(
-      (x: { source: any; text: any }) => x.source && x.source === "stdout"
-    ),
+    filter((x: { source: any; text: any }) => x.source && x.source === "stdout"),
     mapTo(env),
-    catchError(() => empty())
+    catchError(() => EMPTY)
   );
 }
 
@@ -80,7 +78,7 @@ interface EnvVars {
  * result to an observable that parses through the environmental informaiton.
  */
 export function condaInfoObservable(): Observable<CondaInfoJSON> {
-  return spawn("conda", ["info", "--json"]).pipe(map(info => JSON.parse(info)));
+  return (spawn("conda", ["info", "--json"]) as unknown as Observable<string>).pipe<CondaInfoJSON>(map(info => JSON.parse(info)));
 }
 
 /**

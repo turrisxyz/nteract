@@ -1,19 +1,21 @@
 import { Notebook, stringifyNotebook } from "@nteract/commutable";
-import { FileType, IContent, IContentProvider, IGetParams, ServerConfig } from "@nteract/types";
+import { FileType, ICheckpoint, IContent, IContentProvider, IGetParams, ServerConfig } from "@nteract/types";
 import * as fs from "fs";
 import { readFileObservable, statObservable, writeFileObservable } from "fs-observable";
+import { Record } from "immutable";
 import * as path from "path";
 import { Observable, of } from "rxjs";
-import { AjaxResponse } from "rxjs/ajax";
+import { AjaxResponse, AjaxRequest, ajax } from "rxjs/ajax";
 import { catchError, map, mergeMap } from "rxjs/operators";
+import { string } from "yargs";
 
 // A Content provider which reads/writes to local disk
 export class LocalContentProvider implements IContentProvider {
-  public remove(serverConfig: ServerConfig, path: string): Observable<AjaxResponse> {
+  public remove(serverConfig: ServerConfig, path: string): Observable<AjaxResponse<void>> {
     throw new Error("Not implemented");
   }
   
-  public get(serverConfig: ServerConfig, filePath: string, params: Partial<IGetParams>): Observable<AjaxResponse> {
+  public get(serverConfig: ServerConfig, filePath: string, params: Partial<IGetParams>): Observable<AjaxResponse<IContent>> {
     return statObservable(filePath).pipe(
       mergeMap((stat: fs.Stats) => {
         if (!stat.isFile()) {
@@ -37,15 +39,15 @@ export class LocalContentProvider implements IContentProvider {
     );
   }
 
-  public update<FT extends FileType>(serverConfig: ServerConfig, path: string, model: Partial<IContent<FT>>): Observable<AjaxResponse> {
+  public update<FT extends FileType>(serverConfig: ServerConfig, path: string, model: Partial<IContent<FT>>): Observable<AjaxResponse<IContent>> {
     throw new Error("Not implemented");
   }
 
-  public create<FT extends FileType>(serverConfig: ServerConfig, path: string, model: Partial<IContent<FT>> & { type: FT }): Observable<AjaxResponse> {
+  public create<FT extends FileType>(serverConfig: ServerConfig, path: string, model: Partial<IContent<FT>> & { type: FT }): Observable<AjaxResponse<IContent>> {
     throw new Error("Not implemented");
   }
 
-  public save<FT extends FileType>(serverConfig: ServerConfig, filePath: string, model: Partial<IContent<FT>>): Observable<AjaxResponse> {
+  public save<FT extends FileType>(serverConfig: ServerConfig, filePath: string, model: Partial<IContent<FT>>): Observable<AjaxResponse<IContent>> {
     const notebook: Notebook = model.content as Notebook;
     if (!notebook || model.type !== "notebook") {
       return of(this.createErrorAjaxResponse(400, new Error("No notebook found to save")));
@@ -66,19 +68,19 @@ export class LocalContentProvider implements IContentProvider {
     );
   }
 
-  public listCheckpoints(serverConfig: ServerConfig, path: string): Observable<AjaxResponse> {
+  public listCheckpoints(serverConfig: ServerConfig, path: string): Observable<AjaxResponse<ICheckpoint[]>> {
     throw new Error("Not implemented");
   }
 
-  public createCheckpoint(serverConfig: ServerConfig, path: string): Observable<AjaxResponse> {
+  public createCheckpoint(serverConfig: ServerConfig, path: string): Observable<AjaxResponse<ICheckpoint>> {
     throw new Error("Not implemented");
   }
 
-  public deleteCheckpoint(serverConfig: ServerConfig, path: string, checkpointID: string): Observable<AjaxResponse> {
+  public deleteCheckpoint(serverConfig: ServerConfig, path: string, checkpointID: string): Observable<AjaxResponse<void>> {
     throw new Error("Not implemented");
   }
 
-  public restoreFromCheckpoint(serverConfig: ServerConfig, path: string, checkpointID: string): Observable<AjaxResponse> {
+  public restoreFromCheckpoint(serverConfig: ServerConfig, path: string, checkpointID: string): Observable<AjaxResponse<void>> {
     throw new Error("Not implemented");
   }
 
@@ -105,27 +107,33 @@ export class LocalContentProvider implements IContentProvider {
     };
   }
 
-  private createSuccessAjaxResponse(notebook: IContent<"notebook">): AjaxResponse {
+  private createSuccessAjaxResponse(notebook: IContent<"notebook">): AjaxResponse<IContent<"notebook">> {
     return {
-      originalEvent: new Event("no-op"),
+      originalEvent: new ProgressEvent("no-op"),
       xhr: new XMLHttpRequest(),
-      request: {},
       status: 200,
       response: notebook,
-      responseText: JSON.stringify(notebook),
-      responseType: "json"
+      responseType: "json",
+      type: "download_load",
+      loaded: 0,
+      total: 0,
+      request: {} as AjaxRequest,
+      responseHeaders: { "ContentProvider" : "local" }
     };
   }
 
-  private createErrorAjaxResponse(status: number, error: any): AjaxResponse {
+  private createErrorAjaxResponse(status: number, error: any): AjaxResponse<any> {
     return {
-      originalEvent: new Event("no-op"),
+      originalEvent: new ProgressEvent("no-op"),
       xhr: new XMLHttpRequest(),
-      request: {},
       status,
       response: error,
-      responseText: JSON.stringify(error),
-      responseType: "json"
+      responseType: "json",
+      type: "download_load",
+      loaded: 0,
+      total: 0,
+      request: {} as AjaxRequest,
+      responseHeaders: { "ContentProvider" : "local" }
     };
   }
 }

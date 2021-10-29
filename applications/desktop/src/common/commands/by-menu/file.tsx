@@ -183,11 +183,14 @@ export const ExportPDF: DesktopCommand<ReqContent> = {
         },
       });
     } catch (error) {
-      yield sendNotification.create({
-        title: "Unexpected error during PDF export",
-        message: error,
-        level: "error"
-      });
+      if (error instanceof Error)
+      {
+        yield sendNotification.create({
+          title: "Unexpected error during PDF export",
+          message: error.message,
+          level: "error"
+        });
+      }
     }
   },
 };

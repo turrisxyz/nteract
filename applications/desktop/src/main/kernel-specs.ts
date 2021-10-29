@@ -2,15 +2,15 @@ import { Action, makeActionFunction } from "@nteract/actions";
 import { Kernelspecs } from "@nteract/types";
 import kernelspecs from "kernelspecs";
 import { join } from "path";
-import { fromPromise } from "rxjs/internal-compatibility";
+import { from } from "rxjs";
 import { filter, map } from "rxjs/operators";
 
 
 export const kernelSpecs$ =
-  fromPromise(
+  from(
     kernelspecs.findAll()
-  ).pipe(
-    map(specs => ({
+  ).pipe<Kernelspecs>(
+    map((specs: object) => ({
       ...specs,
       node_nteract: {
         name: "node_nteract",

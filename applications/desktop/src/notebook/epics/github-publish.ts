@@ -2,10 +2,10 @@ import { actions, selectors } from "@nteract/core";
 import { sendNotification } from "@nteract/mythic-notifications";
 import { openExternalUrl } from "@nteract/mythic-windowing";
 
+import { Octokit } from "@octokit/rest"
 import * as path from "path";
 import { ofType, StateObservable } from "redux-observable";
-import { concat, EMPTY, Observable, of } from "rxjs";
-import { ajax, AjaxResponse } from "rxjs/ajax";
+import { from, concat, EMPTY, Observable, of } from "rxjs";
 import { catchError, mergeMap } from "rxjs/operators";
 import { DesktopNotebookAppState } from "../state";
 
@@ -19,30 +19,14 @@ interface GithubFiles {
 }
 
 function publishGist(
-  model: { files: GithubFiles; description: string; public: boolean },
+  model: Partial<{ [key: string]: unknown; }>,
   token: string,
   id: string | null
-): Observable<AjaxResponse> {
-  const url =
-    id !== null
-      ? `https://api.github.com/gists/${id}`
-      : "https://api.github.com/gists";
-
-  const opts = {
-    url,
-    responseType: "json",
-    // This allows for us to provide a serverside XMLHttpRequest
-    createXHR: () => new XMLHttpRequest(),
-    headers: {
-      "Content-Type": "application/json",
-      // We can only update authenticated gists so we _must_ send the token
-      Authorization: `token ${token}`
-    },
-    method: id !== null ? "PATCH" : "POST",
-    body: model
-  };
-
-  return ajax(opts);
+) {
+  const octokit = new Octokit({ auth: token });
+  return id != null ? 
+    octokit.rest.gists.update({ gist_id: id, ...model }) :
+    octokit.rest.gists.create(model as any);
 }
 
 /**
@@ -117,21 +101,21 @@ export const publishEpic = (
             level: "in-progress",
           })
         ),
-        publishGist(
+        from(publishGist(
           { files, description: filename, public: false },
           githubToken,
           gistId,
-        ).pipe(
-          mergeMap(xhr =>
+        )).pipe(
+          mergeMap(githubResponse =>
             of(
               actions.overwriteMetadataField({
                 field: "github_username",
-                value: xhr.response.login,
+                value: githubResponse.data.owner?.name,
                 contentRef,
               }),
               actions.overwriteMetadataField({
                 field: "gist_id",
-                value: xhr.response.id,
+                value: githubResponse.data.id,
                 contentRef,
               }),
               sendNotification.create({
@@ -141,7 +125,7 @@ export const publishEpic = (
                 level: "success",
                 action: {
                   label: "Open",
-                  callback: () => window.store.dispatch(openExternalUrl.create(`https://nbviewer.jupyter.org/${xhr.response.id}`)),
+                  callback: () => window.store.dispatch(openExternalUrl.create(`https://nbviewer.jupyter.org/${githubResponse.data.id}`)),
                 },
               }),
             )

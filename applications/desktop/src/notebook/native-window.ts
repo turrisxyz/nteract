@@ -2,8 +2,8 @@ import { AppState, ContentRecord, ContentRef, KernelRef, NotebookContentRecord, 
 import { remote } from "electron";
 import path from "path";
 import { Store } from "redux";
-import { combineLatest, EMPTY, Observable, of } from "rxjs";
-import { debounceTime, distinctUntilChanged, map, mergeMap, switchMap } from "rxjs/operators";
+import { EMPTY, Observable, of } from "rxjs";
+import { combineLatestWith, debounceTime, distinctUntilChanged, map, mergeMap, switchMap } from "rxjs/operators";
 import { KernelStatus } from "@nteract/types";
 
 const HOME = remote.app.getPath("home");
@@ -45,13 +45,16 @@ export function setTitleFromAttributes(attributes: Attributes): void {
   } catch (e) {
     /* istanbul ignore next */
     // log1277
-    (() => {
-      console.error(
-        "Unable to set the filename, see https://github.com/nteract/nteract/issues/1277"
-      );
-      console.error(e);
-      console.error(e.stack);
-    })();
+    if (e instanceof Error)
+    {
+      (() => {
+        console.error(
+          "Unable to set the filename, see https://github.com/nteract/nteract/issues/1277"
+        );
+        console.error(e);
+        console.error(e.stack);
+      })();
+    } 
   }
 }
 
@@ -94,32 +97,31 @@ export function createTitleFeed(
     })
   );
 
-  const kernelStatus$ = combineLatest(
-    state$,
-    kernelRef$,
-    (state: AppState, kernelRef: KernelRef) => {
+  const kernelStatus$ = state$.pipe(
+    combineLatestWith(kernelRef$),
+    map(([state, kernelRef]) => {
+      if (!kernelRef)
+      {
+        return KernelStatus.NotConnected;
+      }
       const kernel = selectors.kernel(state, { kernelRef });
       if (!kernel) {
         return KernelStatus.NotConnected;
       } else {
         return kernel.status;
       }
-    }
-  ).pipe(debounceTime(200));
+    }),
+    debounceTime(200));
 
-  return combineLatest(
-    modified$,
-    fullpath$,
-    kernelStatus$,
-    (modified, fullpath, kernelStatus) => ({
+  return modified$.pipe(
+    combineLatestWith(fullpath$, kernelStatus$),
+    map(([modified, fullpath, kernelStatus]) => ({
       fullpath,
       kernelStatus: kernelStatus ? kernelStatus.toString() : null,
       modified
-    })
-  ).pipe(
+    })),
     distinctUntilChanged(),
-    switchMap(i => of(i))
-  );
+    switchMap(i => of(i)));
 }
 
 export function initNativeHandlers(

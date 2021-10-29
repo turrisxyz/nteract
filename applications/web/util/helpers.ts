@@ -52,14 +52,17 @@ export function createNotebookModel(filePath: string, content?: string): IConten
   };
 }
 
-export function createSuccessAjaxResponse(notebook: IContent<"notebook">): AjaxResponse {
+export function createSuccessAjaxResponse(notebook: IContent<"notebook">): AjaxResponse<IContent<"notebook">> {
   return {
-    originalEvent: new Event("no-op"),
+    originalEvent: new ProgressEvent("no-op"),
     xhr: new XMLHttpRequest(),
-    request: {},
     status: 200,
     response: notebook,
-    responseText: JSON.stringify(notebook),
-    responseType: "json"
+    responseType: "json",
+    type: "download_load",
+    request: null,
+    loaded: 0,
+    total: 0,
+    responseHeaders: {},
   };
 }

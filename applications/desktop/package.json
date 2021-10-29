@@ -143,6 +143,7 @@
     "@nteract/transform-plotly": "^6.1.10",
     "@nteract/transform-vdom": "^4.0.15",
     "@nteract/transform-vega": "^7.0.10",
+    "@octokit/rest": "^18.12.0",
     "enchannel-zmq-backend": "^9.1.22",
     "fs-observable": "^4.1.14",
     "ijavascript": "^5.2.0",
