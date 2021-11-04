@@ -1,5 +1,7 @@
 name: Build desktop app release
 on:
+  pull_request:
+    branches: [ main ]
   schedule:
     - cron: "0 0 * * 0"
   workflow_dispatch:
@@ -17,6 +19,10 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           GH_TOKEN: ${{ secrets.SEMANTIC_RELEASE_GITHUB_TOKEN }}
           NODE_OPTIONS: "--max_old_space_size=8096"
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: |
           yarn
           yarn verifyBeforePublish
